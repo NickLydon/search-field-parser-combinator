@@ -29,7 +29,7 @@ export default React.createClass({
 
             const parsed = parser(this.state.searchText);
 
-            if (parsed.status) return countries;
+            if (!parsed.status) return countries;
 
             switch (parsed.value.type) {
             case 'field':

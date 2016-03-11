@@ -1,6 +1,6 @@
     npm install
 
-    npm run server
+    npm start
 
     browse to http://localhost:8080/webpack-dev-server/
 
