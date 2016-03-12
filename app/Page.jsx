@@ -83,11 +83,21 @@ export default React.createClass({
         const highlight = (field, filter) => {
             if (!filter) return [<span key={0}>{field}</span>];
 
-            return filter === field ?
-                [<span className="highlight" key={0}>{field}</span>] :
-                    field.split(filter).map((s, i) =>
-                        <span key={i} className={`${s === '' ? 'highlight' : ''}`}>
-                            {s === '' ? filter : s}
+            const split = (s, sub) => {
+                if (s.length === 0) return [];
+
+                const index = s.indexOf(sub);
+                if (index === -1) return [s];
+
+                const len = sub.length;
+                if (index === 0) return [sub].concat(split(s.substr(len), sub));
+
+                return [s.substring(0, index), sub].concat(split(s.substr(index + len), sub));
+            };
+
+            return split(field, filter).map((s, i) =>
+                        <span key={i} className={`${s === filter ? 'highlight' : ''}`}>
+                            {s}
                         </span>);
         };
 
