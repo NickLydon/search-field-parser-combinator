@@ -3,19 +3,28 @@ import Rx from 'rx';
 import parser from './Parser';
 import countries from './countries';
 
+const defaultCountry = ({ name, capitalCity }) => ({
+    name,
+    capitalCity,
+    nameFilter: '',
+    capitalCityFilter: '',
+});
+
+const countriesWithFilterInfo = countries.map(defaultCountry);
+
 export default React.createClass({
     getInitialState() {
         return {
-            searchText: '',
+            parsed: null,
         };
     },
     componentWillMount() {
         this.textChanged = new Rx.Subject();
         this.textChanged
-            .debounce(300)
+            .debounce(500)
             .subscribe(searchText => {
                 this.setState({
-                    searchText,
+                    parsed: parser(searchText),
                 });
             });
     },
@@ -25,27 +34,61 @@ export default React.createClass({
         };
 
         const filtered = () => {
-            if (!this.state.searchText) return countries;
+            const parsed = this.state.parsed;
+            if (!parsed) return countriesWithFilterInfo;
 
-            const parsed = parser(this.state.searchText);
+            if (!parsed.status) return countriesWithFilterInfo;
 
-            if (!parsed.status) return countries;
+            const filter = (matchFn, getNameFilter, getCapitalFilter) =>
+                countries.reduce((acc, c) => {
+                    if (!matchFn(c)) return acc;
 
+                    return acc.concat([{
+                        name: c.name,
+                        capitalCity: c.capitalCity,
+                        nameFilter: getNameFilter(),
+                        capitalCityFilter: getCapitalFilter(),
+                    }]);
+                }, []);
+
+            const getFilterText = field => {
+                const filters =
+                    parsed.value.result.filter(({ fieldName }) =>
+                        fieldName === field);
+                return filters.length === 0 ? '' : filters[0].input;
+            };
             switch (parsed.value.type) {
             case 'field':
-                return countries.filter(c =>
-                    parsed.value.result.some(({ fieldName, input }) =>
-                        c[fieldName].toLowerCase().indexOf(
-                            input.toLowerCase()) !== -1));
+                return filter(
+                    c => parsed.value.result.every(({ fieldName, input }) =>
+                            c[fieldName].indexOf(
+                                input) !== -1),
+                    () => getFilterText('name'),
+                    () => getFilterText('capitalCity')
+                );
             case 'any':
-                return countries.filter(c =>
-                    ['name', 'capitalCity']
-                    .some(fieldName =>
-                        c[fieldName].toLowerCase().indexOf(
-                            parsed.value.result.toLowerCase()) !== -1));
+                return filter(
+                    c => ['name', 'capitalCity']
+                            .some(fieldName =>
+                                c[fieldName].indexOf(
+                                    parsed.value.result) !== -1),
+                    () => parsed.value.result,
+                    () => parsed.value.result
+                );
             default:
-                return countries;
+                return countriesWithFilterInfo;
             }
+        };
+
+        const highlight = (field, filter) => {
+            if (!filter) return [<span key={0}>{field}</span>];
+
+            return filter === field ?
+                [<span className="highlight" key={0}>{field}</span>] :
+                    field.split(filter).map((s, i) =>
+                        <span key={i} className={`${s === '' ? 'highlight' : ''}`}>
+                            {s === '' ? filter : s}
+                        </span>);
         };
 
         return (
@@ -62,7 +105,10 @@ export default React.createClass({
                     </thead>
                     <tbody>
                         {filtered().map(c =>
-                            <tr key={c.name}><td>{c.name}</td><td>{c.capitalCity}</td></tr>)}
+                            <tr key={c.name}>
+                                <td>{highlight(c.name, c.nameFilter)}</td>
+                                <td>{highlight(c.capitalCity, c.capitalCityFilter)}</td>
+                            </tr>)}
                     </tbody>
                 </table>
             </div>
